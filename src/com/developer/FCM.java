@@ -154,7 +154,6 @@ public class FCM {
             }
             temp.remove(0); // Menghapus baris pertama atau header dari dataset
 
-            // Mas
             for (int i = 0; i < temp.size(); i++) {
                 ArrayList<Float> floatList = new ArrayList<Float>();
                 for (int j = 0; j < temp.get(i).size(); j++) {
