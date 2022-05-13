@@ -1,11 +1,7 @@
 package com.developer;
 
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Random;
+import java.io.*;
+import java.util.*;
 
 public class FCM {
     public ArrayList<ArrayList<Float>> data;
@@ -13,7 +9,7 @@ public class FCM {
     private float u[][];
     private float u_pre[][];
     private int clusterCount;
-    private int iteration;
+    private int epochs;
     private int dimension;
     private int fuzziness;
     private double epsilon;
@@ -26,16 +22,16 @@ public class FCM {
         epsilon = 0.01;
     }
 
-    public void run(int clusterNumber, int iter, ArrayList<ArrayList<Float>> data){
+    public void run(int clusterNumber, int epochs, ArrayList<ArrayList<Float>> data){
         this.clusterCount = clusterNumber;
-        this.iteration = iter;
+        this.epochs = epochs;
         this.data = data;
 
         // Algoritma FCM
         // 1 Inisialisasi derajat keanggotaan
         assignInitialMembership();
 
-        for (int i = 0; i < iteration; i++) {
+        for (int i = 0; i < epochs; i++) {
             // 2 Hitung pusat cluster
             calculateClusterCenters();
 
@@ -46,53 +42,6 @@ public class FCM {
             finalError = checkConvergence();
             if(finalError <= epsilon)
                 break;
-        }
-    }
-
-    /**
-     * in this function we generate random data with specific option
-     * @param numberOfData
-     * @param dimension
-     * @param minRange
-     * @param maxRange
-     */
-    public void createRandomData(int numberOfData, int dimension, int minRange, int maxRange, int clusterCount){
-        this.dimension = dimension;
-        ArrayList<ArrayList<Integer>> centroids = new ArrayList<ArrayList<Integer>>();
-        centroids.add(new ArrayList<Integer>());
-        int[] numberOfDataInEachArea = new int[clusterCount];
-        int range = maxRange - minRange + 1;
-        int step = range / (clusterCount + 1);
-        for (int i = 1; i <= clusterCount; i++) {
-            centroids.get(0).add(minRange + i * step);
-        }
-
-        for (int i = 0; i < dimension - 1; i++) {
-            centroids.add((ArrayList<Integer>) centroids.get(0).clone());
-        }
-        double variance = (centroids.get(0).get(1) - centroids.get(0).get(0))/ 2.5;
-        for (int i = 0; i < dimension; i++) {
-            Collections.shuffle(centroids.get(i));
-        }
-        Random r = new Random();
-        int sum = 0;
-        for (int i = 0; i < clusterCount; i++) {
-            int rg = r.nextInt(50) + 10;
-            numberOfDataInEachArea[i] = (rg);
-            sum += rg;
-        }
-        for (int i = 0; i < clusterCount; i++)
-            numberOfDataInEachArea[i] = (int)((((double)numberOfDataInEachArea[i]) / sum) * numberOfData);
-
-        Random fRandom = new Random();
-        for (int i = 0; i < clusterCount; i++) {
-            for (int j = 0; j < numberOfDataInEachArea[i]; j++) {
-                ArrayList<Float> tmp = new ArrayList<Float>();
-                for (int k = 0; k < dimension; k++) {
-                    tmp.add((float)(centroids.get(k).get(i) + fRandom.nextGaussian() * variance));
-                }
-                data.add(tmp);
-            }
         }
     }
 
@@ -184,6 +133,42 @@ public class FCM {
             }
         }
         return Math.sqrt(sum);
+    }
+
+    /**
+     * Method ini akan membaca data yang telah ditentukan
+     */
+    public void readData() {
+        String line = "";
+        String delim = ",";
+        float value;
+        ArrayList<ArrayList<String>> temp = new ArrayList<ArrayList<String>>();
+        try {
+            // Baca data yang ada di file csv lalu simpan ke variable temp
+            BufferedReader br = new BufferedReader(new FileReader("data_lulus_tepat_waktu.csv"));
+            while ((line = br.readLine()) != null) {
+                String[] csvData = line.split(delim);
+                ArrayList<String> al = new ArrayList<String>(Arrays.asList(csvData));
+                al.remove(4); // Menghapus index ke-4 atau kolom terakhir pada dataset, yaitu label untuk setiap data
+                temp.add(al);
+            }
+            temp.remove(0); // Menghapus baris pertama atau header dari dataset
+
+            // Mas
+            for (int i = 0; i < temp.size(); i++) {
+                ArrayList<Float> floatList = new ArrayList<Float>();
+                for (int j = 0; j < temp.get(i).size(); j++) {
+                    value = Float.parseFloat(temp.get(i).get(j));
+                    floatList.add(value);
+                }
+                data.add(floatList);
+            }
+            this.dimension = data.get(0).size();
+        }
+        catch(IOException e) {
+            e.printStackTrace();
+        }
+
     }
 
     /**
