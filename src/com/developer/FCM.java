@@ -4,49 +4,48 @@ import java.io.*;
 import java.util.*;
 
 public class FCM {
-    public ArrayList<ArrayList<Float>> data = new ArrayList<ArrayList<Float>>();
+    public ArrayList<ArrayList<Float>> data;
     public ArrayList<ArrayList<Float>> clusterCenters;
-    private float u[][];
-    private float u_pre[][];
+    private float[][] u;
+    private float[][] u_pre;
     private int clusterCount;
-    private int epochs;
     private int dimension;
-    private int fuzziness;
-    private double epsilon;
+    private final int fuzziness;
+    private final double epsilon;
     public double error;
+    public double rsse;
 
-    public FCM(String fileName){
+    public FCM(String fileName, int fuzzinessParam, double epsilon){
         this.data = readData(fileName);
         this.clusterCenters = new ArrayList<ArrayList<Float>>();
-        this.fuzziness = 2;
-        this.epsilon = 0.01;
+        this.fuzziness = fuzzinessParam;
+        this.epsilon = epsilon;
     }
 
     public void run(int clusterNumber, int epochs) throws IOException {
         this.clusterCount = clusterNumber;
-        this.epochs = epochs;
-        float sse;
 
         // Algoritma FCM
         // 1 Inisialisasi derajat keanggotaan
-        assignInitialMembership();
+        System.out.println("============== Training ==============");
+        assignInitialMembership(this.data.size(), this.clusterCount);
 
-        for (int i = 0; i < this.epochs; i++) {
+        for (int i = 0; i < epochs; i++) {
             // 2 Hitung pusat cluster
             calculateClusterCenters();
 
             // 3 Update derajat keanggotaan
-            updateMembershipValues();
+            updateMembershipValues(this.data);
 
             // 4 Cek konvergensi
-            this.error = checkConvergence();
-            System.out.println("Error for training " + i + " : " + this.error);
-            System.out.println("RSSE " + i + " : " + this.rootSumSquaredError());
+            this.error = checkConvergence(this.data);
+            this.rsse = rootSumSquaredError(this.data);
+            System.out.println(i + ". Konvergensi :" + this.error + " RSSE : " + this.rsse);
             if(this.error <= epsilon)
                 break;
         }
-        System.out.println("Final RSSE for training : " + this.rootSumSquaredError());
-        System.out.println("Final Error for training : " + this.error);
+        System.out.println("Final RSSE training : " + this.rsse);
+        System.out.println("Nilai konvergensi training : " + this.error);
         //write cluster center to file
         this.writeDataToFile(this.clusterCenters, "cluster_centers");
         //write data cluster to file
@@ -54,27 +53,35 @@ public class FCM {
     }
 
     public void runTest(String fileName) throws IOException {
-        updateMembershipValues();
-        this.writeClusterToFile(this.data, "data_cluster_test");
-        System.out.println("Final error : " + error);
+        ArrayList<ArrayList<Float>> dataTest;
+        dataTest = this.readData(fileName);
+
+        assignInitialMembership(dataTest.size(), clusterCount);
+
+        this.rsse = rootSumSquaredError(dataTest);
+        this.error = checkConvergence(dataTest);
+
+        this.writeClusterToFile(dataTest, "datatest_cluster");
+        System.out.println("Final RSSE test : " + this.rsse);
+        System.out.println("Nilai konvergensi test : " + this.error);
         System.out.println("Test Successfully");
     }
 
     /**
      * Method ini akan melakukan inisialisasi derajat keanggotaan secara acak
      */
-    private void assignInitialMembership(){
-        u = new float[data.size()][clusterCount];
-        u_pre = new float[data.size()][clusterCount];
+    private void assignInitialMembership(int size, int cluster){
+        this.u = new float[size][cluster];
+        this.u_pre = new float[size][cluster];
         Random r = new Random();
-        for (int i = 0; i < data.size(); i++) {
+        for (int i = 0; i < size; i++) {
             float sum = 0;
-            for (int j = 0; j < clusterCount; j++) {
-                u[i][j] = r.nextFloat() * 10 + 1;
-                sum += u[i][j];
+            for (int j = 0; j < cluster; j++) {
+                this.u[i][j] = r.nextFloat() * 10 + 1;
+                sum += this.u[i][j];
             }
-            for (int j = 0; j < clusterCount; j++) {
-                u[i][j] = u[i][j] / sum;
+            for (int j = 0; j < cluster; j++) {
+                this.u[i][j] = this.u[i][j] / sum;
             }
         }
     }
@@ -105,7 +112,7 @@ public class FCM {
     /**
      * Method untuk update derajat keanggotaan
      */
-    private void updateMembershipValues(){
+    private void updateMembershipValues(ArrayList<ArrayList<Float>> data){
         for (int i = 0; i < data.size(); i++) {
             for (int j = 0; j < clusterCount; j++) {
                 u_pre[i][j] = u[i][j];
@@ -125,7 +132,7 @@ public class FCM {
      * Formula yang digunakan adalah Euclidean distance
      * @param p1 => titik pertama
      * @param p2 => titik kedua
-     * @return
+     * @return sum
      */
     private float euclideanDistance(ArrayList<Float> p1, ArrayList<Float> p2){
         float sum = 0;
@@ -138,9 +145,9 @@ public class FCM {
 
     /**
      * Method ini akan menghitung konvergenitas dari derajat keanggotaan yang lama dan yang baru
-     * @return
+     * @return result
      */
-    private double checkConvergence(){
+    private double checkConvergence(ArrayList<ArrayList<Float>> data){
         double sum = 0;
         for (int i = 0; i < data.size(); i++) {
             for (int j = 0; j < clusterCount; j++) {
@@ -150,25 +157,25 @@ public class FCM {
         return Math.sqrt(sum);
     }
 
-    private float rootSumSquaredError() {
+    private double rootSumSquaredError(ArrayList<ArrayList<Float>> data) {
         float result = 0;
         float dist;
 
         for (int j = 0; j < this.clusterCount; j++) {
-            for (int i = 0; i < this.data.size(); i++) {
-                dist = euclideanDistance(this.data.get(i), this.clusterCenters.get(j));
+            for (int i = 0; i < data.size(); i++) {
+                dist = euclideanDistance(data.get(i), this.clusterCenters.get(j));
                 result += Math.pow(u[i][j], this.fuzziness) * Math.pow(dist, 2);
             }
         }
 
-        return (float) Math.sqrt(result);
+        return Math.sqrt(result);
     }
 
     /**
      * Method ini akan membaca data yang telah ditentukan
      */
     public ArrayList<ArrayList<Float>> readData(String fileName) {
-        String line = "";
+        String line;
         String delim = ",";
         float value;
         ArrayList<ArrayList<String>> temp = new ArrayList<ArrayList<String>>();
@@ -203,7 +210,6 @@ public class FCM {
     /**
      * Method untuk menulis data ke file
      * File yang digunakan berformat .csv
-     * @throws IOException
      */
     public void writeDataToFile(ArrayList<ArrayList<Float>> inpData, String fileName) throws IOException {
 
@@ -211,12 +217,12 @@ public class FCM {
         PrintWriter printWriter = new PrintWriter(fileWriter);
 
         for (int i = 0; i < inpData.size(); i++) {
-            String res = "";
+            StringBuilder res = new StringBuilder();
             for (int j = 0; j < inpData.get(i).size(); j++) {
                 if(j == inpData.get(i).size() - 1)
-                    res += inpData.get(i).get(j);
+                    res.append(inpData.get(i).get(j));
                 else
-                    res += inpData.get(i).get(j) +",";
+                    res.append(inpData.get(i).get(j)).append(",");
             }
             printWriter.println(res);
         }
@@ -226,7 +232,6 @@ public class FCM {
     /**
      * Method untuk menulis data cluster ke file
      * File yang digunakan berformat .csv
-     * @throws IOException
      */
     public void writeClusterToFile(ArrayList<ArrayList<Float>> inpData, String fileName) throws IOException {
 
@@ -234,16 +239,16 @@ public class FCM {
         PrintWriter printWriter = new PrintWriter(fileWriterCluster);
 
         for (int i = 0; i < inpData.size(); i++) {
-            String res = "";
+            StringBuilder res = new StringBuilder();
             for (int c = 0; c < clusterCount; c++) {
                 if (u[i][c] > 0.5) {
                     for (int j = 0; j < inpData.get(i).size(); j++) {
                         if(j == inpData.get(i).size() - 1)
-                            res += inpData.get(i).get(j);
+                            res.append(inpData.get(i).get(j));
                         else
-                            res += inpData.get(i).get(j) +",";
+                            res.append(inpData.get(i).get(j)).append(",");
                     }
-                    printWriter.println(res+",c"+Integer.toString(c+1));
+                    printWriter.println(res+",c"+ (c + 1));
                 }
             }
         }
