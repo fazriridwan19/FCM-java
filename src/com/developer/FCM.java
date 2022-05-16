@@ -10,12 +10,12 @@ public class FCM {
     private float[][] u_pre;
     private int clusterCount;
     private int dimension;
-    private final int fuzziness;
+    private final double fuzziness;
     private final double epsilon;
     public double error;
     public double rsse;
 
-    public FCM(String fileName, int fuzzinessParam, double epsilon){
+    public FCM(String fileName, double fuzzinessParam, double epsilon){
         this.data = readData(fileName);
         this.clusterCenters = new ArrayList<ArrayList<Float>>();
         this.fuzziness = fuzzinessParam;
@@ -41,6 +41,8 @@ public class FCM {
             this.error = checkConvergence(this.data);
             this.rsse = rootSumSquaredError(this.data);
             System.out.println(i + ". Konvergensi :" + this.error + " RSSE : " + this.rsse);
+
+            System.out.println("");
             if(this.error <= epsilon)
                 break;
         }
@@ -57,13 +59,12 @@ public class FCM {
         dataTest = this.readData(fileName);
 
         assignInitialMembership(dataTest.size(), clusterCount);
+        updateMembershipValues(dataTest);
 
         this.rsse = rootSumSquaredError(dataTest);
-        this.error = checkConvergence(dataTest);
 
         this.writeClusterToFile(dataTest, "datatest_cluster");
         System.out.println("Final RSSE test : " + this.rsse);
-        System.out.println("Nilai konvergensi test : " + this.error);
         System.out.println("Test Successfully");
     }
 
@@ -98,7 +99,7 @@ public class FCM {
                 float sum1 = 0;
                 float sum2 = 0;
                 for (int k = 0; k < data.size(); k++) {
-                    double tt = Math.pow(u[k][i], fuzziness);
+                    double tt = Math.pow(u[k][i], this.fuzziness);
                     sum1 += tt * data.get(k).get(j);
                     sum2 += tt;
                 }
@@ -115,14 +116,14 @@ public class FCM {
     private void updateMembershipValues(ArrayList<ArrayList<Float>> data){
         for (int i = 0; i < data.size(); i++) {
             for (int j = 0; j < clusterCount; j++) {
-                u_pre[i][j] = u[i][j];
+                this.u_pre[i][j] = this.u[i][j];
                 float sum = 0;
-                float upper = euclideanDistance(data.get(i), clusterCenters.get(j));
-                for (int k = 0; k < clusterCount; k++) {
-                    float lower = euclideanDistance(data.get(i), clusterCenters.get(k));
-                    sum += Math.pow((upper/lower), 2/(fuzziness -1));
+                float upper = euclideanDistance(data.get(i), this.clusterCenters.get(j));
+                for (int k = 0; k < this.clusterCount; k++) {
+                    float lower = euclideanDistance(data.get(i), this.clusterCenters.get(k));
+                    sum += Math.pow((upper/lower), 2.0/(this.fuzziness - 1));
                 }
-                u[i][j] = 1/sum;
+                this.u[i][j] = 1/sum;
             }
         }
     }
@@ -200,6 +201,7 @@ public class FCM {
                 result.add(floatList);
             }
             this.dimension = result.get(0).size();
+            br.close();
         }
         catch(IOException e) {
             e.printStackTrace();
